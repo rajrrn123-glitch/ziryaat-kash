@@ -1,0 +1,6 @@
+{
+  "name": "Ziryaat Kash",
+  "description": "Premium luxury e-commerce experience for authentic Kashmiri heritage crafts, Pashmina shawls, saffron, and more.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

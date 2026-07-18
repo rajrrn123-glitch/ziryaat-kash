@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "products": {
+      "title": "Product",
+      "description": "Authentic Kashmiri luxury product managed in Ziryaat Kash.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "rating": { "type": "number" },
+        "stock": { "type": "number" },
+        "images": { "type": "array" },
+        "specs": { "type": "object" },
+        "artisan": { "type": "object" },
+        "certificate": { "type": "object" },
+        "reviews": { "type": "array" },
+        "featured": { "type": "boolean" }
+      },
+      "required": ["id", "name", "sku", "category", "price", "stock", "images"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "Premium customer order and shipment detail.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "userId": { "type": "string" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "shipping": { "type": "number" },
+        "tax": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"] },
+        "shippingAddress": { "type": "object" },
+        "paymentMethod": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderNumber", "userId", "items", "total", "status", "shippingAddress", "createdAt"]
+    },
+    "users": {
+      "title": "UserProfile",
+      "description": "Registered Kashmiri Heritage Luxury Member Profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "object" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "products",
+      "description": "Global list of luxury products and artisan details."
+    },
+    "/orders/{orderId}": {
+      "schema": "orders",
+      "description": "Secured orders list accessible by owner or admin."
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile with optional billing/shipping coordinates."
+    }
+  }
+}

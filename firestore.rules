@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "rajrrn123@gmail.com"
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- ENTITY SCHEMA VALIDATIONS ---
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'name', 'sku', 'category', 'price', 'stock', 'images'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 200
+        && data.sku is string && data.sku.size() <= 50
+        && data.category is string && data.category.size() <= 100
+        && data.price is number && data.price >= 0
+        && data.stock is number && data.stock >= 0
+        && data.images is list && data.images.size() <= 10;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'orderNumber', 'userId', 'items', 'total', 'status', 'shippingAddress', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.orderNumber is string && data.orderNumber.size() <= 100
+        && data.userId is string && data.userId.size() <= 128
+        && data.total is number && data.total >= 0
+        && data.status is string && (data.status == 'Pending' || data.status == 'Processing' || data.status == 'Shipped' || data.status == 'Delivered' || data.status == 'Cancelled')
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 50
+        && data.createdAt is string;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName'])
+        && data.uid is string && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 128
+        && data.displayName is string && data.displayName.size() <= 150;
+    }
+
+    // --- COLLECTION RULESETS ---
+
+    // PRODUCTS: Anyone can read, only Admins can write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidProduct(incoming()) && isValidId(productId);
+      allow update: if (isAdmin() || isSignedIn()) && (
+        // Case A: Admin update full product
+        (isAdmin() && isValidProduct(incoming())) ||
+        // Case B: Client submitting review or purchasing (updating stock)
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['reviews', 'rating', 'stock']) &&
+          incoming().stock <= existing().stock
+        )
+      ) && isValidId(productId);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // ORDERS: Users can read/write their own orders, Admins can read/write all
+    match /orders/{orderId} {
+      allow get: if isOwner(existing().userId) || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isOwner(incoming().userId) && isValidOrder(incoming()) && isValidId(orderId);
+      allow update: if (isOwner(existing().userId) || isAdmin()) && (
+        // Action A: Admin updating order status
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'trackingNumber'])) ||
+        // Action B: User canceling order (Terminal State check)
+        (
+          isOwner(existing().userId) && 
+          existing().status == 'Pending' && 
+          incoming().status == 'Cancelled' && 
+          incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+        )
+      ) && isValidId(orderId);
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // USERS: Users can read/write their own profiles, Admins can read all
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().isAdmin == false && isValidId(userId);
+      allow update: if isOwner(userId) && (
+        // Prevent users from escalating privileges to Admin
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'address']) ||
+        (isAdmin() && isValidUser(incoming()))
+      ) && isValidId(userId);
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // ADMINS: Master check directory
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
