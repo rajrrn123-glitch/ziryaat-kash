@@ -162,7 +162,7 @@ if (!localStorage.getItem(LOCAL_ORDERS_KEY)) {
         country: "United Kingdom",
         phone: "+44 7700 900077",
       },
-      paymentMethod: "Credit Card",
+      paymentMethod: "Razorpay",
       createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     }
   ];
